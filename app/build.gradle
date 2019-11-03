@@ -3,12 +3,13 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 28
     defaultConfig {
-        applicationId "com.iteyes.placesproject"
+        applicationId "com.example.placesproject"
         minSdkVersion 16
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        multiDexEnabled true
     }
     buildTypes {
         release {
@@ -31,19 +32,46 @@ dependencies {
     implementation 'com.android.support:support-media-compat:28.0.0'
     implementation 'com.android.support:support-dynamic-animation:28.0.0'
     implementation 'com.android.support.constraint:constraint-layout:1.1.3'
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 
+    // storage
+    implementation 'com.google.firebase:firebase-database:16.0.4'
+    implementation 'com.google.firebase:firebase-storage:19.1.0'
+    // Google play services for location information
+    implementation 'com.google.android.gms:play-services-location:15.0.1'
+    implementation 'com.google.android.libraries.places:places:1.1.0'
+    //ripple background
+    implementation 'com.skyfishjy.ripplebackground:library:1.0.1'
     implementation 'com.karumi:dexter:5.0.0'
     implementation 'com.google.android.gms:play-services-maps:16.1.0'
-    implementation 'com.github.mancj:MaterialSearchBar:0.8.1'
-    implementation 'com.google.android.libraries.places:places:1.1.0'
-    implementation 'com.skyfishjy.ripplebackground:library:1.0.1'
 
     implementation 'com.tbuonomo.andrui:viewpagerdotsindicator:2.0.3'
     implementation 'com.romandanylyk:pageindicatorview:1.0.2@aar'
     implementation 'com.makeramen:roundedimageview:2.3.0'
     implementation 'com.squareup.picasso:picasso:2.5.2'
     implementation 'com.github.iammert:ReadableBottomBar:0.2'
+
+    implementation 'com.google.maps.android:android-maps-utils:0.5+'
+
+    implementation 'com.google.maps:google-maps-services:0.2.9'
+    implementation 'org.slf4j:slf4j-nop:1.7.25'
+    implementation 'de.hdodenhof:circleimageview:2.2.0'
+
+    implementation 'com.google.firebase:firebase-analytics:17.2.0'
+    // Firestore Firestore
+    implementation 'com.google.firebase:firebase-firestore:21.2.1'
+//    implementation 'com.google.firebase:firebase-firestore:17.0.4'
+    // Firebase Core
+    implementation 'com.google.firebase:firebase-core:17.0.1'
+    //Firebase Authentication
+    implementation 'com.google.firebase:firebase-auth:17.0.0'
+    // recyclerview
+    implementation 'com.android.support:recyclerview-v7:28.0.0'
+    //search bar
+    implementation 'com.github.mancj:MaterialSearchBar:0.8.2'
 }
+apply plugin: 'com.google.gms.google-services'

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="250dp"
+    android:orientation="vertical"
+    android:layout_height="200dp">
+
+    <TextView
+        android:gravity="center"
+        android:textSize="30dp"
+        android:background="#009688"
+        android:textStyle="bold|italic"
+        android:textColor="#ffffff"
+        android:text="Nhận xét của bạn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <EditText
+        android:layout_marginTop="5dp"
+        android:id="@+id/edit_text_user_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="5dp"
+        android:hint="Nhập tên của bạn"
+        android:layout_marginLeft="5dp"/>
+
+    <EditText
+
+        android:layout_marginTop="5dp"
+        android:id="@+id/edit_text_cmt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="5dp"
+        android:hint="Ý kiến của bạn"
+        android:gravity="start|top"
+        android:ems="10"
+        android:inputType="textMultiLine"
+        android:layout_marginLeft="5dp"/>
+
+    <Button
+        android:id="@+id/button_upload"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="#009688"
+        android:gravity="center"
+        android:text="Nhận xét"
+        android:textColor="#ffffff"
+        android:textStyle="bold|italic" />
+
+</LinearLayout>

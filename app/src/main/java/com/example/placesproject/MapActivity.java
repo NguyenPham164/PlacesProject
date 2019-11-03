@@ -1,16 +1,18 @@
 package com.example.placesproject;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
-import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
 
-import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.GeofencingApi;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
@@ -23,200 +25,103 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
-import com.google.android.libraries.places.api.model.AutocompletePrediction;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.api.model.TypeFilter;
-import com.google.android.libraries.places.api.net.FetchPlaceRequest;
-import com.google.android.libraries.places.api.net.FetchPlaceResponse;
-import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest;
-import com.google.android.libraries.places.api.net.FindAutocompletePredictionsResponse;
 import com.google.android.libraries.places.api.net.PlacesClient;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
-import com.mancj.materialsearchbar.MaterialSearchBar;
-import com.mancj.materialsearchbar.adapter.SuggestionsAdapter;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.google.maps.DirectionsApiRequest;
+import com.google.maps.GeoApiContext;
+import com.google.maps.android.PolyUtil;
+import com.google.maps.android.clustering.ClusterManager;
+import com.google.maps.internal.PolylineEncoding;
+import com.google.maps.model.DirectionsResult;
+import com.google.maps.model.DirectionsRoute;
 import com.skyfishjy.library.RippleBackground;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import android.os.Handler;
-import android.provider.Settings;
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import java.nio.file.attribute.UserPrincipalLookupService;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Timer;
 
-public class MapActivity extends AppCompatActivity implements OnMapReadyCallback {
+public class MapActivity extends AppCompatActivity implements OnMapReadyCallback,
+        GoogleMap.OnInfoWindowClickListener{
 
     private GoogleMap mMap;
     private FusedLocationProviderClient mFusedLocationProviderClient;
     private PlacesClient placesClient;
-    private List<AutocompletePrediction> predictionList;
-
     private Location mLastKnowLocation;
     private LocationCallback locationCallback;
-
-    private MaterialSearchBar materialSearchBar;
     private View mapView;
     private Button btnFind;
     private RippleBackground rippleBg;
+    private ClusterManager<Place> mClusterManager;
+    private Context context;
+    private GeoApiContext mGeoApiContext;
+    private Polyline polyline = null;
+    private static FirebaseFirestore db;
+    private ArrayList<String> arrayList;
+    private Place place;
+    private ArrayList<Place> places;
+    private Button btnSearchBar;
 
     private final float DEFAULT_ZOOM = 18;
-
-    private Boolean mLocationPermissionsGranted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map);
 
-        materialSearchBar = findViewById(R.id.searchBar);
+        context = this;
         btnFind = (Button)findViewById(R.id.btn_find);
         rippleBg = findViewById(R.id.ripple_bg);
+        btnSearchBar = findViewById(R.id.searchBar);
+
+        db = FirebaseFirestore.getInstance();
 
         SupportMapFragment mapFragment = (SupportMapFragment)getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync( this);
         mapView = mapFragment.getView();
 
+        if(mGeoApiContext == null){
+            mGeoApiContext = new GeoApiContext.Builder()
+                    .apiKey(getString(R.string.google_maps_api_key))
+                    .build();
+        }
+
         mFusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(MapActivity.this);
-        Places.initialize(MapActivity.this, "AIzaSyAZw38AQLnn2mCmVEImOOncBnke0MMm3Ds");
-        //AIzaSyAZw38AQLnn2mCmVEImOOncBnke0MMm3Ds
-        //AIzaSyD84_Vyb82eUaV7PDDQNzxcWxhgT4EO-eI
+        Places.initialize(MapActivity.this, getString(R.string.google_maps_api_key));
         placesClient = Places.createClient(this);
         final AutocompleteSessionToken token = AutocompleteSessionToken.newInstance();
 
-        materialSearchBar.setOnSearchActionListener(new MaterialSearchBar.OnSearchActionListener() {
-            @Override
-            public void onSearchStateChanged(boolean enabled) {
-
-            }
-
-            @Override
-            public void onSearchConfirmed(CharSequence text) {
-                startSearch(text.toString(), true, null, true);
-            }
-
-            @Override
-            public void onButtonClicked(int buttonCode) {
-                if (buttonCode == MaterialSearchBar.BUTTON_NAVIGATION){
-                    //open or close
-                }else if (buttonCode == MaterialSearchBar.BUTTON_BACK){
-                    materialSearchBar.disableSearch();
-                }
-            }
-        });
-        materialSearchBar.addTextChangeListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int i, int i1, int i2) {
-                FindAutocompletePredictionsRequest predictionsRequest = FindAutocompletePredictionsRequest.builder()
-                    .setTypeFilter(TypeFilter.ADDRESS)
-                    .setSessionToken(token)
-                    .setQuery(s.toString())
-                    .build();
-                placesClient.findAutocompletePredictions(predictionsRequest).addOnCompleteListener(new OnCompleteListener<FindAutocompletePredictionsResponse>() {
-                    @Override
-                    public void onComplete(@NonNull Task<FindAutocompletePredictionsResponse> task) {
-                        if(task.isSuccessful()){
-                            FindAutocompletePredictionsResponse predictionsResponse = task.getResult();
-                            if(predictionsResponse != null){
-                                predictionList = predictionsResponse.getAutocompletePredictions();
-                                List<String> suggestionList = new ArrayList<>();
-                                for(int i = 0; i<predictionList.size();i++){
-                                    AutocompletePrediction prediction = predictionList.get(i);
-                                    suggestionList.add(prediction.getFullText(null).toString());
-                                }
-                                materialSearchBar.updateLastSuggestions(suggestionList);
-                                if(!materialSearchBar.isSuggestionsVisible()){
-                                    materialSearchBar.showSuggestionsList();
-                                }
-                            }
-                        }else{
-                            Log.i("mytag", "prediction fetching task unsuccessful");
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void afterTextChanged(Editable editable) {
-
-            }
-        });
-        materialSearchBar.setSuggstionsClickListener(new SuggestionsAdapter.OnItemViewClickListener() {
-            @Override
-            public void OnItemClickListener(int position, View v) {
-                if (position >= predictionList.size()) {
-                    return;
-                }
-                AutocompletePrediction selectedPrediction = predictionList.get(position);
-                String suggestion = materialSearchBar.getLastSuggestions().get(position).toString();
-                materialSearchBar.setText(suggestion);
-
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        materialSearchBar.clearSuggestions();
-                    }
-                }, 1000);
-                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-                if (imm != null)
-                    imm.hideSoftInputFromWindow(materialSearchBar.getWindowToken(), InputMethodManager.HIDE_IMPLICIT_ONLY);
-                final String placeId = selectedPrediction.getPlaceId();
-                List<Place.Field> placeFields = Arrays.asList(Place.Field.LAT_LNG);
-
-                FetchPlaceRequest fetchPlaceRequest = FetchPlaceRequest.builder(placeId, placeFields).build();
-                placesClient.fetchPlace(fetchPlaceRequest).addOnSuccessListener(new OnSuccessListener<FetchPlaceResponse>() {
-                    @Override
-                    public void onSuccess(FetchPlaceResponse fetchPlaceResponse) {
-                        Place place = fetchPlaceResponse.getPlace();
-                        Log.i("mytag", "Place found: " + place.getName());
-                        LatLng latLngOfPlace = place.getLatLng();
-                        if (latLngOfPlace != null) {
-                            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLngOfPlace, DEFAULT_ZOOM));
-                        }
-                    }
-                }).addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        if (e instanceof ApiException) {
-                            ApiException apiException = (ApiException) e;
-                            apiException.printStackTrace();
-                            int statusCode = apiException.getStatusCode();
-                            Log.i("mytag", "place not found: " + e.getMessage());
-                            Log.i("mytag", "status code: " + statusCode);
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void OnItemDeleteListener(int position, View v) {
-
-            }
-        });
         btnFind.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -226,45 +131,182 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     @Override
                     public void run() {
                         rippleBg.stopRippleAnimation();
-                        startActivity(new Intent(MapActivity.this, PermissionsActivity.class));
-                        finish();
+                        setUpClusterer();
                     }
-                }, 3000);
-
+                }, 4000);
             }
         });
     }
-//    @Override
-//    public void onMapReady(GoogleMap googleMap) {
-//        Toast.makeText(this, "Map is Ready", Toast.LENGTH_SHORT).show();
-//        Log.d("MapActivity", "onMapReady: map is ready");
-//        mMap = googleMap;
-//
-//        if (mLocationPermissionsGranted) {
-//            getDeviceLocation();
-//
-//            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-//                    != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
-//                    Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-//                return;
-//            }
-//            mMap.setMyLocationEnabled(true);
-//            mMap.getUiSettings().setMyLocationButtonEnabled(false);
-//
-//        }
-//    }
+
+    private void searchBar(){
+        btnSearchBar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intentSearch = new Intent(MapActivity.this, SearchActivity.class);
+                startActivity(intentSearch);
+            }
+        });
+    }
+    private void getPlaces(){
+        arrayList = new ArrayList<>();
+        places = new ArrayList<>();
+        try {
+            db.collection("Place Location")
+                    .get()
+                    .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                        @Override
+                        public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                            if (task.isSuccessful()) {
+                                for (QueryDocumentSnapshot document : task.getResult()) {
+                                    //add marker
+                                    mClusterManager.addItem(new Place(document.getId(), document.getGeoPoint("geo_point").getLatitude(),
+                                            document.getGeoPoint("geo_point").getLongitude(),
+                                            document.get("ten").toString(), document.get("diachi").toString(), (ArrayList<String>) document.get("user")));
+                                    //list places have chatbox
+                                    places.add(new Place(document.getId(), document.getGeoPoint("geo_point").getLatitude(),
+                                            document.getGeoPoint("geo_point").getLongitude(),
+                                            document.get("ten").toString(), document.get("diachi").toString(), (ArrayList<String>) document.get("user")));
+                                }
+                            } else {
+                                Toast.makeText(getBaseContext(), "getting documents ERROR", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+        }catch (Exception e){
+            Toast.makeText(getBaseContext(), "getPlaces ERROR", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void setUpClusterer() {
+        try {
+            mMap.setOnInfoWindowClickListener(this);
+            mClusterManager = new ClusterManager<Place>(this, mMap);
+
+            mMap.setOnCameraIdleListener(mClusterManager);
+            mMap.setOnMarkerClickListener(mClusterManager);
+
+            // Add cluster items (markers) to the cluster manager.
+           getPlaces();
+           Toast.makeText(getBaseContext(), "OK", Toast.LENGTH_SHORT).show();
+        }catch (Exception e){
+            Toast.makeText(getBaseContext(), "setUpClusterer ERROR", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onInfoWindowClick(final Marker marker) {
+
+        if(marker.getSnippet().equals("")){
+            marker.hideInfoWindow();
+        }
+        else{
+            final AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setMessage("BẠN CHỌN "+marker.getTitle()+" - "+marker.getSnippet())
+                    .setCancelable(true)
+                    .setPositiveButton("CHỈ HƯỚNG", new DialogInterface.OnClickListener() {
+                        public void onClick(@SuppressWarnings("unused") final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                            addPolylines(new LatLng(mLastKnowLocation.getLatitude(), mLastKnowLocation.getLongitude()), marker.getPosition());
+                            dialog.dismiss();
+                        }
+                    })
+                    .setNegativeButton("XEM CHI TIẾT", new DialogInterface.OnClickListener() {
+                        public void onClick(final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                            for(Place p: places){
+                                if(p.getPosition().latitude == marker.getPosition().latitude && p.getPosition().longitude == marker.getPosition().longitude){
+                                    setUpClusterer();
+                                    Intent intent = new Intent(MapActivity.this, RepairDetails.class);
+                                    intent.putExtra("ten", marker.getTitle());
+                                    intent.putExtra("diachi", marker.getSnippet());
+                                    intent.putExtra("chat", p.getUser());
+                                    intent.putExtra("docID", p.getPlaceID());
+                                    Toast.makeText(getBaseContext(), "ID: "+p.getPlaceID(), Toast.LENGTH_SHORT).show();
+                                    startActivity(intent);
+                                }
+                            }
+                        }
+                    });
+            final AlertDialog alert = builder.create();
+            alert.show();
+        }
+    }
+
+    public void addPolylines(LatLng start, LatLng end){
+        List<LatLng> newLine = new ArrayList<>();
+        newLine.add(start);
+        newLine.add(end);
+        Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(newLine));
+        polyline.setColor(ContextCompat.getColor(context, R.color.colorPrimaryDark));
+        polyline.setClickable(true);
+        polyline.setJointType(1);
+        zoomRoute(polyline.getPoints());
+    }
+
+    public void zoomRoute(List<LatLng> lstLatLngRoute) {
+
+        if (mMap == null || lstLatLngRoute == null || lstLatLngRoute.isEmpty()) return;
+
+        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+        for (LatLng latLngPoint : lstLatLngRoute)
+            boundsBuilder.include(latLngPoint);
+
+        int routePadding = 120;
+        LatLngBounds latLngBounds = boundsBuilder.build();
+
+        mMap.animateCamera(
+                CameraUpdateFactory.newLatLngBounds(latLngBounds, routePadding),
+                600,
+                null
+        );
+    }
+
     @SuppressLint("MissingPermission")
     @Override
     public void onMapReady(GoogleMap googleMap){
         mMap = googleMap;
+        mMap.setMyLocationEnabled(true);
+        mMap.getUiSettings().setMyLocationButtonEnabled(true);
+        mMap.getUiSettings().setCompassEnabled(true);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setMapToolbarEnabled(true);
 
         if(mapView != null && mapView.findViewById(Integer.parseInt("1")) !=null){
-            View locationButton = ((View)mapView.findViewById(Integer.parseInt("1")).getParent()).findViewById(Integer.parseInt("2"));
-            RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams)locationButton.getLayoutParams();
-            layoutParams.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
-            layoutParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
-            layoutParams.setMargins(0,0,40,180);
+            View locationButton = ((View)mapView.findViewById(Integer.parseInt("1")).getParent())
+                    .findViewById(Integer.parseInt("2"));
+            View locationCompass = ((View) mapView.findViewById(Integer.parseInt("1")).getParent())
+                    .findViewById(Integer.parseInt("5"));
+            View locationZoom = ((View) mapView.findViewById(Integer.parseInt("1")).getParent())
+                    .findViewById(Integer.parseInt("1"));
+            View locationToolbar = ((View) mapView.findViewById(Integer.parseInt("1")).getParent())
+                    .findViewById(Integer.parseInt("4"));
+
+            //change Tool bar position
+            RelativeLayout.LayoutParams layoutParams_Toolbar = (RelativeLayout.LayoutParams) locationToolbar.getLayoutParams();
+            layoutParams_Toolbar.addRule(RelativeLayout.ALIGN_PARENT_RIGHT, 0);
+            layoutParams_Toolbar.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
+            layoutParams_Toolbar.setMargins(0,0,0,250);
+
+            //change Zoom Control position
+            RelativeLayout.LayoutParams layoutParams_Zoom = (RelativeLayout.LayoutParams) locationZoom.getLayoutParams();
+            layoutParams_Zoom.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+            layoutParams_Zoom.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
+            layoutParams_Zoom.setMargins(0,0,40,450);
+
+            //change location Button
+            RelativeLayout.LayoutParams layoutParams_Location = (RelativeLayout.LayoutParams)locationButton.getLayoutParams();
+            layoutParams_Location.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+            layoutParams_Location.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
+            layoutParams_Location.setMargins(0,0,40,250);
+
+            // change compass position
+            RelativeLayout.LayoutParams layoutParams_Compass = (RelativeLayout.LayoutParams)
+                    locationCompass.getLayoutParams();
+            layoutParams_Compass.addRule(RelativeLayout.ALIGN_PARENT_LEFT, 0);
+            layoutParams_Compass.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, 0);
+            layoutParams_Compass.addRule(RelativeLayout.ALIGN_PARENT_RIGHT, RelativeLayout.TRUE);
+            layoutParams_Compass.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+            layoutParams_Compass.setMargins(0, 250,40, 0);
         }
+
         //check gps
         LocationRequest locationRequest = LocationRequest.create();
         locationRequest.setInterval(10000);
@@ -280,6 +322,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             @Override
             public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
                 getDeviceLocation();
+                //add marker
+                setUpClusterer();
             }
         });
         task.addOnFailureListener(MapActivity.this, new OnFailureListener() {
@@ -295,18 +339,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 }
             }
         });
-        mMap.setOnMyLocationButtonClickListener(new GoogleMap.OnMyLocationButtonClickListener() {
-            @Override
-            public boolean onMyLocationButtonClick() {
-                if (materialSearchBar.isSuggestionsVisible())
-                    materialSearchBar.clearSuggestions();
-                if (materialSearchBar.isSearchEnabled())
-                    materialSearchBar.disableSearch();
-                return false;
-            }
-        });
-        mMap.setMyLocationEnabled(true);
-        mMap.getUiSettings().setMyLocationButtonEnabled(true);
     }
 
     @Override
@@ -328,6 +360,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         if(task.isSuccessful()){
                             mLastKnowLocation = task.getResult();
                             if(mLastKnowLocation != null){
+
                                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(mLastKnowLocation.getLatitude(), mLastKnowLocation.getLongitude()), DEFAULT_ZOOM));
                             }else{
                                 final LocationRequest locationRequest = LocationRequest.create();
@@ -344,49 +377,89 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                                         mLastKnowLocation = locationResult.getLastLocation();
                                         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(mLastKnowLocation.getLatitude(), mLastKnowLocation.getLongitude()), DEFAULT_ZOOM));
                                         mFusedLocationProviderClient.removeLocationUpdates(locationCallback);
+
                                     }
                                 };
                                 mFusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, null);
                             }
+//                            saveUserLocation();
                         }else {
-                            Toast.makeText(MapActivity.this, "unable tp get last location", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MapActivity.this, "unable to get last location", Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
     }
-//    com.example.placesproject
-//    private void getDeviceLocation(){
-//        Log.d("MapActivity", "getDeviceLocation: getting the devices current location");
-//
-//        mFusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-//
+}
+
+
+//    private void calculateDirections(Marker marker){
 //        try{
-//            if(mLocationPermissionsGranted){
+//            com.google.maps.model.LatLng destination = new com.google.maps.model.LatLng(
+//                    marker.getPosition().latitude,
+//                    marker.getPosition().longitude
+//            );
+//            DirectionsApiRequest directions = new DirectionsApiRequest(mGeoApiContext);
 //
-//                final Task location = mFusedLocationProviderClient.getLastLocation();
-//                location.addOnCompleteListener(new OnCompleteListener() {
-//                    @Override
-//                    public void onComplete(@NonNull Task task) {
-//                        if(task.isSuccessful()){
-//                            Log.d("MapActivity", "onComplete: found location!");
-//                            Location currentLocation = (Location) task.getResult();
-//
-//                            moveCamera(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()),
-//                                    DEFAULT_ZOOM);
-//
-//                        }else{
-//                            Log.d("MapActivity", "onComplete: current location is null");
-//                            Toast.makeText(MapActivity.this, "unable to get current location", Toast.LENGTH_SHORT).show();
-//                        }
-//                    }
-//                });
-//            }
-//        }catch (SecurityException e){
-//            Log.e("MapActivity", "getDeviceLocation: SecurityException: " + e.getMessage() );
+//            directions.alternatives(true);
+//            directions.origin(
+//                    new com.google.maps.model.LatLng(
+//                            mLastKnowLocation.getLatitude(),
+//                            mLastKnowLocation.getLongitude()
+//                    )
+//            );
+//            Log.d("MapActivity", "calculateDirections: destination: " + destination.toString());
+//            directions.destination(String.valueOf(destination)).setCallback(new com.google.maps.PendingResult.Callback<DirectionsResult>() {
+//                @Override
+//                public void onResult(DirectionsResult result) {
+//                    Log.d("MapActivity", "calculateDirections: routes: " + result.routes[0].toString());
+//                    Log.d("MapActivity", "calculateDirections: duration: " + result.routes[0].legs[0].duration);
+//                    Log.d("MapActivity", "calculateDirections: distance: " + result.routes[0].legs[0].distance);
+//                    Log.d("MapActivity", "calculateDirections: geocodedWayPoints: " + result.geocodedWaypoints[0].toString());
+//                    addPolylinesToMap(result);
+//                }
+//                @Override
+//                public void onFailure(Throwable e) {
+//                    Log.e("MapActivity", "calculateDirections: Failed to get directions: " + e.getMessage() );
+//                }
+//            });
+//        }catch (Exception e){
+//            Toast.makeText(getBaseContext(), "calculateDirections error", Toast.LENGTH_SHORT).show();
 //        }
 //    }
-//    private void moveCamera(LatLng latLng, float zoom){
-//        Log.d("MapActivity", "moveCamera: moving the camera to: lat: " + latLng.latitude + ", lng: " + latLng.longitude );
-//        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
+//
+//
+//    private void addPolylinesToMap(final DirectionsResult result){
+//        new Handler(Looper.getMainLooper()).post(new Runnable() {
+//            @Override
+//            public void run() {
+//
+//                for(DirectionsRoute route: result.routes){
+//                    List<com.google.maps.model.LatLng> decodedPath = PolylineEncoding.decode(route.overviewPolyline.getEncodedPath());
+//
+//                    List<LatLng> newDecodedPath = new ArrayList<>();
+//
+//                    // This loops through all the LatLng coordinates of ONE polyline.
+//                    for(com.google.maps.model.LatLng latLng: decodedPath){
+//
+//                        newDecodedPath.add(new LatLng(latLng.lat, latLng.lng));
+//                    }
+//                    Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(newDecodedPath));
+//                    polyline.setColor(ContextCompat.getColor(context, R.color.colorPrimaryDark));
+//                    polyline.setClickable(true);
+//                    zoomRoute(polyline.getPoints());
+//                }
+//            }
+//        });
 //    }
-}
+//    public void ListMarkers(){
+//        try {
+//            getPlaces();
+//            for(Place p:places){
+//                mClusterManager.addItem(p);
+//            }
+//            mClusterManager.addItem(new Place(10.824128, 106.685536, "nguyen", "hcm"));
+//            Toast.makeText(getBaseContext(), "Find OK", Toast.LENGTH_SHORT).show();
+//        }catch (Exception e){
+//            Toast.makeText(getBaseContext(), "ListMarkers ERROR", Toast.LENGTH_SHORT).show();
+//        }
+//    }

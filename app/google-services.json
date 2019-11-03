@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "322622465616",
+    "firebase_url": "https://placesproject-1a7a5.firebaseio.com",
+    "project_id": "placesproject-1a7a5",
+    "storage_bucket": "placesproject-1a7a5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322622465616:android:2cb458d6a5dd11ef699355",
+        "android_client_info": {
+          "package_name": "com.example.placesproject"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "322622465616-ch1j0dopvc7snkfifchmpt8r2c90r4o0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.placesproject",
+            "certificate_hash": "c0f2606f25aac5e0939fffc4dd768f8880a6977e"
+          }
+        },
+        {
+          "client_id": "322622465616-4outm53dai3mc12113fgsos4810ksbe6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvCuIv--MrsWJ0Ok_yRWTVewRAZr18CXw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "322622465616-4outm53dai3mc12113fgsos4810ksbe6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
