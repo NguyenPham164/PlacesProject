@@ -5,13 +5,7 @@ public class user {
 
     public user(String ten, String cmt) {
         this.ten = ten;
-        if(ten.equalsIgnoreCase("")){
-            ten = "[No name]";
-        }
         this.cmt = cmt;
-        if(cmt.equalsIgnoreCase("")){
-            cmt = "[No Cmt]";
-        }
     }
 
     public String getTen() {

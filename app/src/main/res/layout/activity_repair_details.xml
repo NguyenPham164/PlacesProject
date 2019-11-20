@@ -7,33 +7,80 @@
     android:orientation="vertical"
     tools:context=".RepairDetails">
 
-    <TextView
-        android:id="@+id/tvTen"
-        android:gravity="center_horizontal"
-        android:background="#009688"
-        android:textColor="#ffffff"
-        android:textStyle="bold"
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="tên chỗ sửa xe"
-        android:textSize="30sp" />
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/imageViewBack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:srcCompat="@drawable/back_left" />
+
+        <TextView
+            android:id="@+id/tvTen"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="2"
+            android:background="#009688"
+            android:gravity="center_horizontal"
+            android:padding="7sp"
+            android:text="tên chỗ sửa xe"
+            android:textColor="#ffffff"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <TextView
+        android:padding="5sp"
         android:id="@+id/tvDD"
-        android:gravity="center_horizontal"
+        android:gravity="left"
         android:background="#4CAF50"
         android:textColor="#ffffff"
-        android:textStyle="bold"
+        android:textStyle="bold|italic"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="địa điểm sửa xe"
-        android:textSize="24sp" />
+        android:textSize="15sp" />
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="match_parent"
+        android:layout_height="200dp" />
 
     <Button
+        android:background="#00BCD4"
+        android:textColor="#ffffff"
+        android:textStyle="bold"
+        android:textSize="18dp"
         android:text="Thêm nhận xét"
         android:id="@+id/btnNhanXet"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
+
+    <LinearLayout
+        android:background="#4CAF50"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <TextView
+            android:textStyle="italic"
+            android:textColor="#ffffff"
+            android:textSize="20dp"
+            android:text="Tên người dùng"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingLeft="70dp"
+            android:text="Nhận xét người dùng"
+            android:textColor="#ffffff"
+            android:textSize="20dp"
+            android:textStyle="italic" />
+    </LinearLayout>
 
     <GridView
         android:id="@+id/gridView"

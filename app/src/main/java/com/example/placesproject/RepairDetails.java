@@ -52,17 +52,23 @@ public class RepairDetails extends AppCompatActivity {
     private FirebaseFirestore db;
     private ArrayAdapter<String> arrayAdapter;
     private ArrayList<String> arrayList;
+    private ImageView imageView, imageViewBack;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_repair_details);
 
+        imageViewBack = (ImageView)findViewById(R.id.imageViewBack);
+        imageView = (ImageView)findViewById(R.id.imageView);
         gridView = (GridView) findViewById(R.id.gridView);
         tvTen = (TextView) findViewById(R.id.tvTen);
         tvDD = (TextView) findViewById(R.id.tvDD);
         tvTen.setText(getIntent().getStringExtra("ten"));
-        tvDD.setText(getIntent().getStringExtra("diachi"));
+        tvDD.setText("địa chỉ: "+ getIntent().getStringExtra("diachi"));
+
+        String url = getIntent().getStringExtra("url");
+        Picasso.with(this).load(url).into(imageView);
 
         capNhatChat();
 
@@ -83,7 +89,7 @@ public class RepairDetails extends AppCompatActivity {
                         String ten = etTen.getText().toString();
                         String cmt = etCmt.getText().toString();
                         if(ten.equalsIgnoreCase("") || cmt.equalsIgnoreCase("")){
-                            Toast.makeText(getBaseContext(),"Hãy nhập đầy đủ để nhận xét", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getBaseContext(),"Hãy nhập thông tin đầy đủ để nhận xét", Toast.LENGTH_SHORT).show();
                         }else {
                             arrayList.add(ten);
                             arrayList.add(cmt);
@@ -96,6 +102,15 @@ public class RepairDetails extends AppCompatActivity {
                         }
                     }
                 });
+                capNhatChat();
+            }
+        });
+        imageViewBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent();
+                setResult(RESULT_OK, intent);
+                finish();
             }
         });
     }
@@ -108,6 +123,7 @@ public class RepairDetails extends AppCompatActivity {
             gridView.setAdapter(arrayAdapter);
         }
     }
+    //add chat
     public void savingToFirestore(){
         db = FirebaseFirestore.getInstance();
         DocumentReference docRef = db.collection("Place Location").document(getIntent().getStringExtra("docID"));
@@ -116,7 +132,6 @@ public class RepairDetails extends AppCompatActivity {
         for(String i:arrayList){
             docRef.update("user", FieldValue.arrayUnion(i));
         }
-        // Atomically remove a region from the "regions" array field.
-        // washingtonRef.update("user", FieldValue.arrayRemove(arrayList));
     }
+
 }

@@ -34,7 +34,11 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.AutocompletePrediction;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
+import com.google.android.libraries.places.api.model.TypeFilter;
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest;
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsResponse;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
@@ -50,6 +54,8 @@ import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.internal.PolylineEncoding;
 import com.google.maps.model.DirectionsResult;
 import com.google.maps.model.DirectionsRoute;
+import com.mancj.materialsearchbar.MaterialSearchBar;
+import com.mancj.materialsearchbar.adapter.SuggestionsAdapter;
 import com.skyfishjy.library.RippleBackground;
 
 import androidx.annotation.NonNull;
@@ -60,15 +66,18 @@ import androidx.core.content.ContextCompat;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
-import java.nio.file.attribute.UserPrincipalLookupService;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 
@@ -91,7 +100,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private ArrayList<String> arrayList;
     private Place place;
     private ArrayList<Place> places;
-    private Button btnSearchBar;
+    private ImageView imageView;
 
     private final float DEFAULT_ZOOM = 18;
 
@@ -103,7 +112,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         context = this;
         btnFind = (Button)findViewById(R.id.btn_find);
         rippleBg = findViewById(R.id.ripple_bg);
-        btnSearchBar = findViewById(R.id.searchBar);
+        imageView = (ImageView)findViewById(R.id.imageView);
 
         db = FirebaseFirestore.getInstance();
 
@@ -138,15 +147,18 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         });
     }
 
-    private void searchBar(){
-        btnSearchBar.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intentSearch = new Intent(MapActivity.this, SearchActivity.class);
-                startActivity(intentSearch);
-            }
-        });
+    private void setUpClusterer() {
+        try {
+            mMap.setOnInfoWindowClickListener(this);
+            mClusterManager = new ClusterManager<Place>(this, mMap);
+            mMap.setOnCameraIdleListener(mClusterManager);
+            mMap.setOnMarkerClickListener(mClusterManager);
+            getPlaces();
+        }catch (Exception e){
+            Toast.makeText(getBaseContext(), "setUpClusterer ERROR", Toast.LENGTH_SHORT).show();
+        }
     }
+
     private void getPlaces(){
         arrayList = new ArrayList<>();
         places = new ArrayList<>();
@@ -161,11 +173,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                                     //add marker
                                     mClusterManager.addItem(new Place(document.getId(), document.getGeoPoint("geo_point").getLatitude(),
                                             document.getGeoPoint("geo_point").getLongitude(),
-                                            document.get("ten").toString(), document.get("diachi").toString(), (ArrayList<String>) document.get("user")));
-                                    //list places have chatbox
+                                            document.get("ten").toString(), document.get("diachi").toString(), (ArrayList<String>) document.get("user"), document.get("hinhanh").toString()));
+                                    //list places have user-chat
                                     places.add(new Place(document.getId(), document.getGeoPoint("geo_point").getLatitude(),
                                             document.getGeoPoint("geo_point").getLongitude(),
-                                            document.get("ten").toString(), document.get("diachi").toString(), (ArrayList<String>) document.get("user")));
+                                            document.get("ten").toString(), document.get("diachi").toString(), (ArrayList<String>) document.get("user"), document.get("hinhanh").toString()));
                                 }
                             } else {
                                 Toast.makeText(getBaseContext(), "getting documents ERROR", Toast.LENGTH_SHORT).show();
@@ -177,20 +189,34 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
     }
 
-    private void setUpClusterer() {
-        try {
-            mMap.setOnInfoWindowClickListener(this);
-            mClusterManager = new ClusterManager<Place>(this, mMap);
+    public void zoomRoute(List<LatLng> lstLatLngRoute) {
+        imageView.setVisibility(View.INVISIBLE);
+        if (mMap == null || lstLatLngRoute == null || lstLatLngRoute.isEmpty()) return;
 
-            mMap.setOnCameraIdleListener(mClusterManager);
-            mMap.setOnMarkerClickListener(mClusterManager);
+        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+        for (LatLng latLngPoint : lstLatLngRoute)
+            boundsBuilder.include(latLngPoint);
 
-            // Add cluster items (markers) to the cluster manager.
-           getPlaces();
-           Toast.makeText(getBaseContext(), "OK", Toast.LENGTH_SHORT).show();
-        }catch (Exception e){
-            Toast.makeText(getBaseContext(), "setUpClusterer ERROR", Toast.LENGTH_SHORT).show();
-        }
+        int routePadding = 120;
+        LatLngBounds latLngBounds = boundsBuilder.build();
+
+        mMap.animateCamera(
+                CameraUpdateFactory.newLatLngBounds(latLngBounds, routePadding),
+                600,
+
+                null
+        );
+    }
+
+    public void addPolylines(LatLng start, LatLng end){
+        List<LatLng> newLine = new ArrayList<>();
+        newLine.add(start);
+        newLine.add(end);
+        Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(newLine));
+        polyline.setColor(ContextCompat.getColor(context, R.color.colorPrimaryDark));
+        polyline.setClickable(true);
+        polyline.setJointType(1);
+        zoomRoute(polyline.getPoints());
     }
 
     @Override
@@ -213,14 +239,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         public void onClick(final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
                             for(Place p: places){
                                 if(p.getPosition().latitude == marker.getPosition().latitude && p.getPosition().longitude == marker.getPosition().longitude){
-                                    setUpClusterer();
                                     Intent intent = new Intent(MapActivity.this, RepairDetails.class);
                                     intent.putExtra("ten", marker.getTitle());
                                     intent.putExtra("diachi", marker.getSnippet());
                                     intent.putExtra("chat", p.getUser());
                                     intent.putExtra("docID", p.getPlaceID());
-                                    Toast.makeText(getBaseContext(), "ID: "+p.getPlaceID(), Toast.LENGTH_SHORT).show();
-                                    startActivity(intent);
+                                    intent.putExtra("url", p.getUrlImage());
+//                                    Toast.makeText(getBaseContext(), "ID: "+p.getPlaceID(), Toast.LENGTH_SHORT).show();
+                                    startActivityForResult(intent, 101);
                                 }
                             }
                         }
@@ -228,35 +254,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             final AlertDialog alert = builder.create();
             alert.show();
         }
-    }
-
-    public void addPolylines(LatLng start, LatLng end){
-        List<LatLng> newLine = new ArrayList<>();
-        newLine.add(start);
-        newLine.add(end);
-        Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(newLine));
-        polyline.setColor(ContextCompat.getColor(context, R.color.colorPrimaryDark));
-        polyline.setClickable(true);
-        polyline.setJointType(1);
-        zoomRoute(polyline.getPoints());
-    }
-
-    public void zoomRoute(List<LatLng> lstLatLngRoute) {
-
-        if (mMap == null || lstLatLngRoute == null || lstLatLngRoute.isEmpty()) return;
-
-        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-        for (LatLng latLngPoint : lstLatLngRoute)
-            boundsBuilder.include(latLngPoint);
-
-        int routePadding = 120;
-        LatLngBounds latLngBounds = boundsBuilder.build();
-
-        mMap.animateCamera(
-                CameraUpdateFactory.newLatLngBounds(latLngBounds, routePadding),
-                600,
-                null
-        );
     }
 
     @SuppressLint("MissingPermission")
@@ -322,8 +319,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             @Override
             public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
                 getDeviceLocation();
-                //add marker
-                setUpClusterer();
             }
         });
         task.addOnFailureListener(MapActivity.this, new OnFailureListener() {
@@ -349,6 +344,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 getDeviceLocation();
             }
         }
+        if(requestCode == 101){
+            if(resultCode == RESULT_OK){
+                setUpClusterer();
+            }
+        }
     }
     @SuppressLint("MissingPermission")
     private void getDeviceLocation(){
@@ -360,7 +360,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         if(task.isSuccessful()){
                             mLastKnowLocation = task.getResult();
                             if(mLastKnowLocation != null){
-
                                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(mLastKnowLocation.getLatitude(), mLastKnowLocation.getLongitude()), DEFAULT_ZOOM));
                             }else{
                                 final LocationRequest locationRequest = LocationRequest.create();
@@ -377,12 +376,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                                         mLastKnowLocation = locationResult.getLastLocation();
                                         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(mLastKnowLocation.getLatitude(), mLastKnowLocation.getLongitude()), DEFAULT_ZOOM));
                                         mFusedLocationProviderClient.removeLocationUpdates(locationCallback);
-
                                     }
                                 };
                                 mFusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, null);
                             }
-//                            saveUserLocation();
                         }else {
                             Toast.makeText(MapActivity.this, "unable to get last location", Toast.LENGTH_SHORT).show();
                         }
@@ -390,76 +387,3 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 });
     }
 }
-
-
-//    private void calculateDirections(Marker marker){
-//        try{
-//            com.google.maps.model.LatLng destination = new com.google.maps.model.LatLng(
-//                    marker.getPosition().latitude,
-//                    marker.getPosition().longitude
-//            );
-//            DirectionsApiRequest directions = new DirectionsApiRequest(mGeoApiContext);
-//
-//            directions.alternatives(true);
-//            directions.origin(
-//                    new com.google.maps.model.LatLng(
-//                            mLastKnowLocation.getLatitude(),
-//                            mLastKnowLocation.getLongitude()
-//                    )
-//            );
-//            Log.d("MapActivity", "calculateDirections: destination: " + destination.toString());
-//            directions.destination(String.valueOf(destination)).setCallback(new com.google.maps.PendingResult.Callback<DirectionsResult>() {
-//                @Override
-//                public void onResult(DirectionsResult result) {
-//                    Log.d("MapActivity", "calculateDirections: routes: " + result.routes[0].toString());
-//                    Log.d("MapActivity", "calculateDirections: duration: " + result.routes[0].legs[0].duration);
-//                    Log.d("MapActivity", "calculateDirections: distance: " + result.routes[0].legs[0].distance);
-//                    Log.d("MapActivity", "calculateDirections: geocodedWayPoints: " + result.geocodedWaypoints[0].toString());
-//                    addPolylinesToMap(result);
-//                }
-//                @Override
-//                public void onFailure(Throwable e) {
-//                    Log.e("MapActivity", "calculateDirections: Failed to get directions: " + e.getMessage() );
-//                }
-//            });
-//        }catch (Exception e){
-//            Toast.makeText(getBaseContext(), "calculateDirections error", Toast.LENGTH_SHORT).show();
-//        }
-//    }
-//
-//
-//    private void addPolylinesToMap(final DirectionsResult result){
-//        new Handler(Looper.getMainLooper()).post(new Runnable() {
-//            @Override
-//            public void run() {
-//
-//                for(DirectionsRoute route: result.routes){
-//                    List<com.google.maps.model.LatLng> decodedPath = PolylineEncoding.decode(route.overviewPolyline.getEncodedPath());
-//
-//                    List<LatLng> newDecodedPath = new ArrayList<>();
-//
-//                    // This loops through all the LatLng coordinates of ONE polyline.
-//                    for(com.google.maps.model.LatLng latLng: decodedPath){
-//
-//                        newDecodedPath.add(new LatLng(latLng.lat, latLng.lng));
-//                    }
-//                    Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(newDecodedPath));
-//                    polyline.setColor(ContextCompat.getColor(context, R.color.colorPrimaryDark));
-//                    polyline.setClickable(true);
-//                    zoomRoute(polyline.getPoints());
-//                }
-//            }
-//        });
-//    }
-//    public void ListMarkers(){
-//        try {
-//            getPlaces();
-//            for(Place p:places){
-//                mClusterManager.addItem(p);
-//            }
-//            mClusterManager.addItem(new Place(10.824128, 106.685536, "nguyen", "hcm"));
-//            Toast.makeText(getBaseContext(), "Find OK", Toast.LENGTH_SHORT).show();
-//        }catch (Exception e){
-//            Toast.makeText(getBaseContext(), "ListMarkers ERROR", Toast.LENGTH_SHORT).show();
-//        }
-//    }

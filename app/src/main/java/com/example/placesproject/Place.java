@@ -10,13 +10,23 @@ public class Place implements ClusterItem {
     private LatLng mPosition;
     private String mTitle, mSnippet;
     private ArrayList<String> user;
+    private String urlImage;
 
-    public Place(String placeID, double lat, double lng, String title, String snippet, ArrayList<String> user) {
+    public Place(String placeID, double lat, double lng, String title, String snippet, ArrayList<String> user, String urlImage) {
         this.placeID = placeID;
         mPosition = new LatLng(lat, lng);
         mTitle = title;
         mSnippet = snippet;
         this.user = user;
+        this.urlImage = urlImage;
+    }
+
+    public String getUrlImage() {
+        return urlImage;
+    }
+
+    public void setUrlImage(String urlImage) {
+        this.urlImage = urlImage;
     }
 
     public String getPlaceID() {

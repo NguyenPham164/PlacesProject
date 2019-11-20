@@ -53,9 +53,9 @@ public class PermissionsActivity extends AppCompatActivity {
                                 if(response.isPermanentlyDenied()){
                                     AlertDialog.Builder builder = new AlertDialog.Builder(PermissionsActivity.this);
                                     builder.setTitle("Permission Denied")
-                                            .setMessage("Permission to access device location is permission denied. You need to go to setting to allow the permission.")
-                                            .setNegativeButton("Cancel", null)
-                                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                            .setMessage("Quyền truy cập vị trí thiết bị bị từ chối. Bạn cần phải đi đến cài đặt để cho phép.")
+                                            .setNegativeButton("Từ Chối", null)
+                                            .setPositiveButton("Đồng Ý", new DialogInterface.OnClickListener() {
                                                 @Override
                                                 public void onClick(DialogInterface dialogInterface, int i) {
                                                     Intent intent = new Intent();
